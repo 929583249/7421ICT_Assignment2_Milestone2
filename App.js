@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StatusBar, ActivityIndicator } from 'react-native';
-import styles from './components/styles';
-import Header from './components/Header';
-import SplashScreen from './components/SplashScreen';
-import CategoryList from './components/CategoryList';
-import ProductList from './components/ProductList';
-import ProductDetails from './components/ProductDetails';
-import { fetchCategories, fetchProductsForCategory, fetchProductDetails } from './api';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+import HomeScreen from './components/HomeScreen';
+import ShoppingCart from './components/ShoppingCart';
+import { fetchCategories, fetchProductsForCategory } from './api';
+
+const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -16,53 +17,59 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-      fetchCategories().then(setCategories).catch(console.error);
-    }, 3000);
-    return () => clearTimeout(timer);
+    const fetchData = async () => {
+      try {
+        const fetchedCategories = await fetchCategories();
+        setCategories(fetchedCategories);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchData();
   }, []);
-  
+
+  const handleCategorySelect = async (category) => {
+    setSelectedCategory(category);
+    const fetchedProducts = await fetchProductsForCategory(category);
+    setProducts(fetchedProducts);
+  };
 
   const handleBackToHome = () => {
     setSelectedCategory(null);
     setProducts(null);
   };
 
-  function getPageTitle() {
-    if (selectedCategory && !selectedProduct) {
-      return selectedCategory;
-    } else if (selectedProduct) {
-      return 'Product Details';
-    } else {
-      return 'Fake Store';
-    }
-  }
-
-  const renderContent = () => {
-    if (loading && !selectedCategory && !selectedProduct) {
-      return <SplashScreen />;
-    } else if (selectedProduct) {
-      return <ProductDetails product={selectedProduct} onBack={() => setSelectedProduct(null)} />;
-    } else if (selectedCategory && products) {
-      return <ProductList products={products} onProductSelect={setSelectedProduct} onBack={handleBackToHome} />;
-    } else if (categories) {
-      return <CategoryList categories={categories} onCategorySelect={(category) => {
-        setSelectedCategory(category);
-        fetchProductsForCategory(category).then(setProducts).catch(console.error);
-      }} />;
-    }
-    return <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-    <ActivityIndicator size="large" color="#0000ff" />
-  </View>
-  };
-  
-
   return (
-    <View style={styles.container}>
-      <Header title={getPageTitle()} isLoading={loading} />
-      {renderContent()}
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
+            if (route.name === 'Products') {
+              iconName = focused ? 'list-circle' : 'list-circle-outline';
+            } else if (route.name === 'Shopping Cart') {
+              iconName = focused ? 'cart' : 'cart-outline';
+            }
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: 'tomato',
+          tabBarInactiveTintColor: 'gray',
+        })}
+      >
+        <Tab.Screen name="Products" children={() => <HomeScreen 
+          loading={loading}
+          selectedCategory={selectedCategory}
+          products={products}
+          selectedProduct={selectedProduct}
+          categories={categories}
+          handleCategorySelect={handleCategorySelect}
+          handleBackToHome={handleBackToHome}
+          setSelectedProduct={setSelectedProduct}
+        />} />
+        <Tab.Screen name="Shopping Cart" component={ShoppingCart} />
+      </Tab.Navigator>
+    </NavigationContainer>
   );
 }
