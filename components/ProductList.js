@@ -32,4 +32,5 @@ const ProductList = ({ products, onProductSelect, onBack }) => {
   );
 };
 
+
 export default ProductList;
